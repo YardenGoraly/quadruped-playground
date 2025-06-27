@@ -36,6 +36,7 @@ from isaaclab.sim import SimulationCfg, SimulationContext
 
 def main():
     """Main function."""
+    print(123123123)
 
     # Initialize the simulation context
     sim_cfg = SimulationCfg(dt=0.01)

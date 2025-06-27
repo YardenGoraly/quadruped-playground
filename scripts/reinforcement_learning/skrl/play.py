@@ -5,7 +5,7 @@
 
 """
 Script to play a checkpoint of an RL agent from skrl.
-
+https://forums.developer.nvidia.com/t/nothing-appears-in-the-view-area-when-opening-isaac-sim/329342/8
 Visit the skrl documentation (https://skrl.readthedocs.io) to see the examples structured in
 a more user-friendly way.
 """
@@ -20,7 +20,7 @@ from isaaclab.app import AppLauncher
 parser = argparse.ArgumentParser(description="Play a checkpoint of an RL agent from skrl.")
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
-parser.add_argument(
+parser.add_argument(https://forums.developer.nvidia.com/t/nothing-appears-in-the-view-area-when-opening-isaac-sim/329342/8
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")

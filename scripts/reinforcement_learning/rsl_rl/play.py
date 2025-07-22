@@ -48,6 +48,7 @@ import gymnasium as gym
 import os
 import time
 import torch
+import onnx
 
 from rsl_rl.runners import OnPolicyRunner
 
@@ -62,6 +63,35 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 # PLACEHOLDER: Extension template (do not remove this comment)
+
+def attach_onnx_metadata(env, run_path: str, path: str, filename="policy.onnx") -> None:
+    onnx_path = os.path.join(path, filename)
+    metadata = {"run_path": run_path,
+                "joint_names": env.scene["robot"].data.joint_names,
+                "joint_stiffness": env.scene["robot"].data.default_joint_stiffness[0].cpu().tolist(),
+                "joint_damping": env.scene["robot"].data.default_joint_damping[0].cpu().tolist(),
+                "default_joint_pos": env.scene["robot"].data.default_joint_pos[0].cpu().tolist(),
+                "command_names": env.command_manager.active_terms,
+                "observation_names": env.observation_manager.active_terms["policy"],
+                "action_scale": env.action_manager.get_term("joint_pos").cfg.scale}
+    model = onnx.load(onnx_path)
+
+    for k, v in metadata.items():
+        entry = onnx.StringStringEntryProto()
+        entry.key = k
+        entry.value = list_to_csv_str(v) if isinstance(v, list) else str(v)
+        model.metadata_props.append(entry)
+
+    onnx.save(model, onnx_path)
+
+
+
+def list_to_csv_str(arr, *, decimals: int = 3, delimiter: str = ",") -> str:
+    fmt = f"{{:.{decimals}f}}"
+    return delimiter.join(
+        fmt.format(x) if isinstance(x, (int, float)) else str(x)  # numbers → format, strings → as-is
+        for x in arr
+    )
 
 
 def main():
@@ -134,6 +164,7 @@ def main():
     export_policy_as_onnx(
         policy_nn, normalizer=ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.onnx"
     )
+    attach_onnx_metadata(env.unwrapped, "none", export_model_dir)
 
     dt = env.unwrapped.step_dt
 

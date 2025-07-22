@@ -34,6 +34,26 @@ from isaaclab.terrains import TerrainImporter
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+def randomize_decimation_on_reset(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    min_decimation: int, 
+    max_decimation: int,
+):
+    """Samples a new decimation value and applies it to the environment."""
+
+    # resolve environment ids
+    if env_ids is None:
+        env_ids = torch.arange(env.scene.num_envs, device="cpu")
+    else:
+        env_ids = env_ids.cpu()
+
+    # Sample a new integer decimation level for the episode
+    new_decimation = torch.randint(min_decimation, max_decimation + 1, (1,), device=env.device).item()
+
+    # Apply the new decimation value to the environment
+    # The '.unwrapped' attribute is used to access the base RLEnv properties
+    env.decimation = new_decimation
 
 def randomize_rigid_body_scale(
     env: ManagerBasedEnv,

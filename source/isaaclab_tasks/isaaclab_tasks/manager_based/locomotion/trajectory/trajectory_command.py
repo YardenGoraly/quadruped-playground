@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 from isaaclab.assets import Articulation
 from isaaclab.utils.configclass import configclass
-from isaaclab.managers.CommandManager import CommandTerm, CommandTermCfg
+from isaaclab.managers import CommandTerm, CommandTermCfg
 import isaaclab.sim as sim_utils
 
 @configclass
@@ -13,6 +13,13 @@ class TrajectoryCommandCfg(CommandTermCfg):
     desired_speed: float = 1.0
     arrival_threshold: float = 0.5
     lookahead_distance: float = 0.8
+    heading_control_stiffness: float = 0.8
+
+    def __post_init__(self):
+        """Post-initialization checks."""
+        # Since this command is state-based, resampling is not used.
+        # We set a default value here to satisfy the base class requirements.
+        self.resampling_time_range = (1.0, 1.0)
     
 
 class TrajectoryCommand(CommandTerm):

@@ -5,6 +5,7 @@ from isaaclab.assets import Articulation
 from isaaclab.utils.configclass import configclass
 from isaaclab.managers import CommandTerm, CommandTermCfg
 import isaaclab.sim as sim_utils
+from isaaclab.utils import math as math_utils
 
 @configclass
 class TrajectoryCommandCfg(CommandTermCfg):
@@ -28,19 +29,24 @@ class TrajectoryCommand(CommandTerm):
     def __init__(self, cfg: TrajectoryCommandCfg, env):
         super().__init__(cfg, env)
 
-        self.device = env.device
         self._asset: Articulation = env.scene[cfg.asset_name]
 
         self.waypoints = torch.tensor(self.cfg.waypoints, device=self.device)
         self.num_waypoints = self.waypoints.shape[0]
 
         self.target_waypoint_idx = torch.ones(self.num_envs, dtype=torch.long, device=self.device)
-        self.command_buffer = torch.zeros(self.num_envs, 3, device=self.device)
+        self._command_buffer = torch.zeros(self.num_envs, 3, device=self.device)
+
+    @property
+    def command(self) -> torch.Tensor:
+        """The command buffer."""
+        return self._command_buffer
 
     def reset(self, env_ids: torch.Tensor):
         self.target_waypoint_idx[env_ids] = 1
+        return {}
 
-    def compute(self, dt: float):
+    def _update_command(self):
         robot_pos = self._asset.data.root_pos_w[:, :2]
         robot_yaw = self._asset.data.root_quat_w
 
@@ -64,8 +70,9 @@ class TrajectoryCommand(CommandTerm):
         traj_dirs = traj_vecs / nonzero_traj_lens.unsqueeze(1)
 
         vec_to_start = robot_pos - start_points
-        proj_dist = torch.sum(vec_to_start * traj_dir, dim=1)
-        proj_dist = torch.clamp(proj_dist, 0.0, traj_lens)
+        proj_dist = torch.sum(vec_to_start * traj_dirs, dim=1)
+        proj_dist = torch.clamp(proj_dist, min=0.0)
+        proj_dist = torch.minimum(proj_dist, traj_lens)
         closest_point_on_traj = start_points + proj_dist.unsqueeze(1) * traj_dirs
         lookahead_point = closest_point_on_traj + self.cfg.lookahead_distance * traj_dirs
 
@@ -75,14 +82,31 @@ class TrajectoryCommand(CommandTerm):
         desired_velocity_world_dir = desired_velocity_world / nonzero_norm.unsqueeze(1)
         lin_vel_world = desired_velocity_world_dir * self.cfg.desired_speed
 
-        _, _, yaw = sim_utils.get_euler_xyz_from_quaternion(robot_yaw)
+        _, _, yaw = math_utils.euler_xyz_from_quat(robot_yaw)
         cos_yaw, sin_yaw = torch.cos(-yaw), torch.sin(-yaw)
         lin_vel_x_base = lin_vel_world[:, 0] * cos_yaw - lin_vel_world[:, 1] * sin_yaw
         lin_vel_y_base = lin_vel_world[:, 0] * sin_yaw + lin_vel_world[:, 1] * cos_yaw
 
-        # Update the command buffer
-        self.command_buffer[:, 0] = lin_vel_x_base
-        self.command_buffer[:, 1] = lin_vel_y_base
-        self.command_buffer[:, 2] = desired_heading
+        desired_heading = torch.atan2(traj_dirs[:, 1], traj_dirs[:, 0])
+        ang_vel_z = self.cfg.heading_control_stiffness * (desired_heading - yaw)
 
-        return self.command_buffer
+        # Update the command buffer
+        self._command_buffer[:, 0] = lin_vel_x_base
+        self._command_buffer[:, 1] = lin_vel_y_base
+        self._command_buffer[:, 2] = ang_vel_z
+
+        return self._command_buffer
+    
+    def _resample_command(self, env_ids: torch.Tensor):
+        """Resample the command for the given environment IDs.
+        
+        This is not used for a state-based command generator like this one.
+        """
+        pass
+
+    def _update_metrics(self):
+        """Update the metrics for the command generator.
+        
+        This can be used to log custom data from the command term.
+        """
+        pass

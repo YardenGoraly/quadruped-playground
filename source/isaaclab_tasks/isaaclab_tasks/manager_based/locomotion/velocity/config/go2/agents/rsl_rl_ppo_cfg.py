@@ -35,6 +35,9 @@ class UnitreeGo2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+    def __post_init__(self):
+        super().__post_init__()
+        self.resume_path = "/home/shankar-lab/quadruped/IsaacLab/logs/rsl_rl/unitree_go2_rough/2025-07-17_18-32-51/model_9999.pt"
 
 
 @configclass

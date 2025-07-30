@@ -60,15 +60,16 @@ class TrajectoryCommand(CommandTerm):
             self.target_waypoint_idx[arrived_envs] += 1
             self.target_waypoint_idx[arrived_envs] = torch.clamp(self.target_waypoint_idx[arrived_envs], max=self.num_waypoints - 1)
 
+        # Find vectors representing current waypoint to target waypoint
         prev_waypoint_idx = torch.clamp(self.target_waypoint_idx - 1, min=0)
         start_points = self.waypoints[prev_waypoint_idx]
         end_points = self.waypoints[self.target_waypoint_idx]
-
         traj_vecs = end_points - start_points
         traj_lens = torch.linalg.norm(traj_vecs, dim=1)
         nonzero_traj_lens = torch.where(traj_lens > 1e-6, traj_lens, torch.ones_like(traj_lens))
         traj_dirs = traj_vecs / nonzero_traj_lens.unsqueeze(1)
 
+        # Find closest point to robot on trajectory and calculate a point some distance away as the lookahead point
         vec_to_start = robot_pos - start_points
         proj_dist = torch.sum(vec_to_start * traj_dirs, dim=1)
         proj_dist = torch.clamp(proj_dist, min=0.0)
@@ -76,17 +77,20 @@ class TrajectoryCommand(CommandTerm):
         closest_point_on_traj = start_points + proj_dist.unsqueeze(1) * traj_dirs
         lookahead_point = closest_point_on_traj + self.cfg.lookahead_distance * traj_dirs
 
+        # Find desired velocity in world frame to reach lookahead point
         desired_velocity_world = lookahead_point - robot_pos
         desired_velocity_world_norm = torch.linalg.norm(desired_velocity_world, dim=1)
         nonzero_norm = torch.where(desired_velocity_world_norm > 1e-6, desired_velocity_world_norm, torch.ones_like(desired_velocity_world_norm))
         desired_velocity_world_dir = desired_velocity_world / nonzero_norm.unsqueeze(1)
         lin_vel_world = desired_velocity_world_dir * self.cfg.desired_speed
 
+        # Use current heading to calculate x and y components of desired velocity in the base frame
         _, _, yaw = math_utils.euler_xyz_from_quat(robot_yaw)
         cos_yaw, sin_yaw = torch.cos(-yaw), torch.sin(-yaw)
         lin_vel_x_base = lin_vel_world[:, 0] * cos_yaw - lin_vel_world[:, 1] * sin_yaw
         lin_vel_y_base = lin_vel_world[:, 0] * sin_yaw + lin_vel_world[:, 1] * cos_yaw
 
+        # Calculate angular velocity in order to match the desired heading (direction of trajectory vector)
         desired_heading = torch.atan2(traj_dirs[:, 1], traj_dirs[:, 0])
         ang_vel_z = self.cfg.heading_control_stiffness * (desired_heading - yaw)
 

@@ -24,7 +24,7 @@ class UnitreeGo2TrajectoryEnvCfg(UnitreeGo2RoughEnvCfg):
 
         self.commands.twist = TrajectoryCommandCfg(
             asset_name="robot",
-            waypoints=[[0.0, 0.0], [5.0, 0.0], [10.0, 0.0]],
+            waypoints=[[0.0, 0.0], [0.0, 5.0], [5.0, 5.0], [5.0, 0.0], [0.0, 0.0]],
             desired_speed=1.2,
             arrival_threshold=0.6,
             lookahead_distance=0.8,
@@ -34,9 +34,9 @@ class UnitreeGo2TrajectoryEnvCfg(UnitreeGo2RoughEnvCfg):
         )
 
         self.rewards.track_lin_vel_xy_exp.weight = 1.5
-        self.rewards.track_ang_vel_z_exp.weight = 0.7
+        self.rewards.track_ang_vel_z_exp.weight = 1.5
 
-        self.rewards.prgoress_reward = RewTerm(func=progress_reward, weight=2.5)
+        self.rewards.progress_reward = RewTerm(func=progress_reward, weight=2.5)
         self.rewards.path_dist_penalty = RewTerm(func=path_dist_penalty, weight=-2.0)
 
         self.events.reset_base = EventTerm(

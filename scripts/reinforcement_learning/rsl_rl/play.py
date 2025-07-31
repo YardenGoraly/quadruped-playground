@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2022-2025, The Isaac Lab Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -54,6 +54,7 @@ import gymnasium as gym
 import os
 import time
 import torch
+import onnx
 
 from rsl_rl.runners import OnPolicyRunner
 
@@ -76,6 +77,33 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
+def attach_onnx_metadata(env, run_path: str, path: str, filename="policy.onnx") -> None:
+    onnx_path = os.path.join(path, filename)
+    metadata = {"run_path": run_path,
+                "joint_names": env.scene["robot"].data.joint_names,
+                "joint_stiffness": env.scene["robot"].data.default_joint_stiffness[0].cpu().tolist(),
+                "joint_damping": env.scene["robot"].data.default_joint_damping[0].cpu().tolist(),
+                "default_joint_pos": env.scene["robot"].data.default_joint_pos[0].cpu().tolist(),
+                "command_names": env.command_manager.active_terms,
+                "observation_names": env.observation_manager.active_terms["policy"],
+                "action_scale": env.action_manager.get_term("joint_pos").cfg.scale}
+
+    model = onnx.load(onnx_path)
+
+    for k, v in metadata.items():
+        entry = onnx.StringStringEntryProto()
+        entry.key = k
+        entry.value = list_to_csv_str(v) if isinstance(v, list) else str(v)
+        model.metadata_props.append(entry)
+
+    onnx.save(model, onnx_path)
+
+def list_to_csv_str(arr, *, decimals: int = 3, delimiter: str = ",") -> str:
+    fmt = f"{{:.{decimals}f}}"
+    return delimiter.join(
+        fmt.format(x) if isinstance(x, (int, float)) else str(x)  # numbers → format, strings → as-is
+        for x in arr
+    )
 
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
 def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlOnPolicyRunnerCfg):
@@ -95,7 +123,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     log_root_path = os.path.abspath(log_root_path)
     print(f"[INFO] Loading experiment from directory: {log_root_path}")
     if args_cli.use_pretrained_checkpoint:
-        resume_path = get_published_pretrained_checkpoint("rsl_rl", task_name)
+        resume_path = get_published_pretrained_checkpoint("rsl_rl", args_cli.task)
         if not resume_path:
             print("[INFO] Unfortunately a pre-trained checkpoint is currently unavailable for this task.")
             return
@@ -151,6 +179,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     export_policy_as_onnx(
         policy_nn, normalizer=ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.onnx"
     )
+    attach_onnx_metadata(env.unwrapped, "none", export_model_dir)
 
     dt = env.unwrapped.step_dt
 

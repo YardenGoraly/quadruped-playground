@@ -11,7 +11,7 @@ from isaaclab.utils import math as math_utils
 class TrajectoryCommandCfg(CommandTermCfg):
     asset_name: str = "robot"
     waypoints: list[list[float]] = field(default_factory=list)
-    desired_speed: float = 1.0
+    desired_speed: float = 0.5
     arrival_threshold: float = 0.5
     lookahead_distance: float = 0.8
     heading_control_stiffness: float = 0.8

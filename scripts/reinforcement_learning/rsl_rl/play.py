@@ -142,6 +142,11 @@ def main():
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+
+    from isaaclab_tasks.manager_based.locomotion.trajectory.config.go2.agents.trajectory_policy import TrajectoryFollowerPolicy
+    import rsl_rl.runners.on_policy_runner as runner_module
+    runner_module.TrajectoryFollowerPolicy = TrajectoryFollowerPolicy
+
     # load previously trained model
     ppo_runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
     ppo_runner.load(resume_path)

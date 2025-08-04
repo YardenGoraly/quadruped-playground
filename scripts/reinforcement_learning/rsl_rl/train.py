@@ -12,6 +12,7 @@ import sys
 
 from isaaclab.app import AppLauncher
 
+
 # local imports
 import cli_args  # isort: skip
 
@@ -162,6 +163,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # wrap around environment for rsl-rl
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+
+    from isaaclab_tasks.manager_based.locomotion.trajectory.config.go2.agents.trajectory_policy import TrajectoryFollowerPolicy
+    import rsl_rl.runners.on_policy_runner as runner_module
+    runner_module.TrajectoryFollowerPolicy = TrajectoryFollowerPolicy
 
     # create runner from rsl-rl
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)

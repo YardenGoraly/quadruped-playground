@@ -3,14 +3,71 @@ from isaaclab.utils import configclass
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
+from isaaclab.managers import ObservationTermCfg as ObsTerm
 import isaaclab.sim as sim_utils
 from isaaclab.utils import math as math_utils
+import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+
 
 from isaaclab_tasks.manager_based.locomotion.velocity.config.go2.rough_env_cfg import UnitreeGo2RoughEnvCfg
 from isaaclab_tasks.manager_based.locomotion.trajectory.trajectory_command import TrajectoryCommand, TrajectoryCommandCfg
 
+
+@configclass
+class TrajectoryObservationsCfg:
+    """Observation specifications for the MDP."""    
+
+    @configclass
+    class PolicyCfg(ObsGroup):
+        """Observations for policy group."""
+        # observation terms (order preserved)
+        # base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+        projected_gravity = ObsTerm(
+            clip=(-1.0, 1.0),
+            func=mdp.projected_gravity,
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+        command = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
+        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
+        actions = ObsTerm(func=mdp.last_action)
+
+        def __post_init__(self):
+            self.enable_corruption = True
+            self.concatenate_terms = True    
+
+    @configclass
+    class CriticCfg(ObsGroup):
+        """Observations for the critic (value function)."""
+        # Privileged observation (ground-truth, no noise)
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel) # No noise for the critic
+        
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+        projected_gravity = ObsTerm(
+            func=mdp.projected_gravity,
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+            clip=(-1.0, 1.0),
+        )
+        command = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
+        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
+        actions = ObsTerm(func=mdp.last_action)
+
+        def __post_init__(self):
+            self.enable_corruption = True  # Noise is still applied to the non-privileged terms
+            self.concatenate_terms = True
+            
+    # observation groups
+    policy: PolicyCfg = PolicyCfg()
+    critic: CriticCfg = CriticCfg()
+
 @configclass
 class UnitreeGo2TrajectoryEnvCfg(UnitreeGo2RoughEnvCfg):
+
+    observations: TrajectoryObservationsCfg = TrajectoryObservationsCfg()
 
     def __post_init__(self):
         super().__post_init__()
@@ -34,10 +91,12 @@ class UnitreeGo2TrajectoryEnvCfg(UnitreeGo2RoughEnvCfg):
         )
 
         self.rewards.track_lin_vel_xy_exp.weight = 1.5
-        self.rewards.track_ang_vel_z_exp.weight = 1.5
+        self.rewards.track_ang_vel_z_exp.weight = 0.75
 
-        self.rewards.progress_reward = RewTerm(func=progress_reward, weight=2.5)
+        self.rewards.progress_reward = RewTerm(func=progress_reward, weight=1.5)
         self.rewards.path_dist_penalty = RewTerm(func=path_dist_penalty, weight=-2.0)
+
+        # self.rewards.feet_air_time.weight = 0.02
 
         self.events.reset_base = EventTerm(
             func=reset_root_state_trajectory,

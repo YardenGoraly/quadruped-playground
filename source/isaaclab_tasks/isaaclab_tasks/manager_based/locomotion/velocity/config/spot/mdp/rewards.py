@@ -48,7 +48,7 @@ def air_time_reward(
     t_max = torch.max(current_air_time, current_contact_time)
     t_min = torch.clip(t_max, max=mode_time)
     stance_cmd_reward = torch.clip(current_contact_time - current_air_time, -mode_time, mode_time)
-    cmd = torch.norm(env.command_manager.get_command("base_velocity"), dim=1).unsqueeze(dim=1).expand(-1, 4)
+    cmd = torch.norm(env.command_manager.get_command("twist"), dim=1).unsqueeze(dim=1).expand(-1, 4)
     body_vel = torch.linalg.norm(asset.data.root_lin_vel_b[:, :2], dim=1).unsqueeze(dim=1).expand(-1, 4)
     reward = torch.where(
         torch.logical_or(cmd > 0.0, body_vel > velocity_threshold),
@@ -63,7 +63,7 @@ def base_angular_velocity_reward(env: ManagerBasedRLEnv, asset_cfg: SceneEntityC
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     # compute the error
-    target = env.command_manager.get_command("base_velocity")[:, 2]
+    target = env.command_manager.get_command("twist")[:, 2]
     ang_vel_error = torch.linalg.norm((target - asset.data.root_ang_vel_b[:, 2]).unsqueeze(1), dim=1)
     return torch.exp(-ang_vel_error / std)
 
@@ -75,7 +75,7 @@ def base_linear_velocity_reward(
     # extract the used quantities (to enable type-hinting)
     asset: RigidObject = env.scene[asset_cfg.name]
     # compute the error
-    target = env.command_manager.get_command("base_velocity")[:, :2]
+    target = env.command_manager.get_command("twist")[:, :2]
     lin_vel_error = torch.linalg.norm((target - asset.data.root_lin_vel_b[:, :2]), dim=1)
     # fixed 1.0 multiple for tracking below the ramp_at_vel value, then scale by the rate above
     vel_cmd_magnitude = torch.linalg.norm(target, dim=1)
@@ -147,7 +147,7 @@ class GaitReward(ManagerTermBase):
         async_reward_3 = self._async_reward_func(self.synced_feet_pairs[1][0], self.synced_feet_pairs[0][1])
         async_reward = async_reward_0 * async_reward_1 * async_reward_2 * async_reward_3
         # only enforce gait if cmd > 0
-        cmd = torch.norm(env.command_manager.get_command("base_velocity"), dim=1)
+        cmd = torch.norm(env.command_manager.get_command("twist"), dim=1)
         body_vel = torch.linalg.norm(self.asset.data.root_lin_vel_b[:, :2], dim=1)
         return torch.where(
             torch.logical_or(cmd > 0.0, body_vel > self.velocity_threshold), sync_reward * async_reward, 0.0
@@ -262,7 +262,7 @@ def joint_position_penalty(
     """Penalize joint position error from default on the articulation."""
     # extract the used quantities (to enable type-hinting)
     asset: Articulation = env.scene[asset_cfg.name]
-    cmd = torch.linalg.norm(env.command_manager.get_command("base_velocity"), dim=1)
+    cmd = torch.linalg.norm(env.command_manager.get_command("twist"), dim=1)
     body_vel = torch.linalg.norm(asset.data.root_lin_vel_b[:, :2], dim=1)
     reward = torch.linalg.norm((asset.data.joint_pos - asset.data.default_joint_pos), dim=1)
     return torch.where(torch.logical_or(cmd > 0.0, body_vel > velocity_threshold), reward, stand_still_scale * reward)

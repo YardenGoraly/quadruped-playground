@@ -18,6 +18,9 @@ class TrajectoryFollowerPolicy(ActorCritic):
         for param in self.critic.parameters():
             param.requires_grad = False
         self.std.requires_grad = False
+
+        for param in self.actor[-1].parameters():
+            param.requires_grad = True
         
         # Add new head for trajector. Size must math that of the last hidden layer + command size
         feature_size = 128

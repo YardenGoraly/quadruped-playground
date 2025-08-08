@@ -15,6 +15,9 @@ from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  
+from isaaclab.sensors import RayCasterCfg
 
 import isaaclab_tasks.manager_based.locomotion.velocity.config.spot.mdp as spot_mdp
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
@@ -97,13 +100,49 @@ class SpotObservationsCfg:
             func=mdp.joint_vel_rel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.5, n_max=0.5)
         )
         actions = ObsTerm(func=mdp.last_action)
+        height_scan = ObsTerm(
+            func=mdp.height_scan,
+            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+            clip=(-1.0, 1.0),
+        )
+        
 
         def __post_init__(self):
             self.enable_corruption = False
             self.concatenate_terms = True
 
+    # @configclass
+    # class CriticCfg(ObsGroup):
+    #     """Observations for the critic (value function)."""
+    #     # Privileged observation (ground-truth, no noise)
+    #     base_lin_vel = ObsTerm(
+    #         func=mdp.base_lin_vel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.1, n_max=0.1)
+    #     )
+    #     base_ang_vel = ObsTerm(
+    #         func=mdp.base_ang_vel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.1, n_max=0.1)
+    #     )
+    #     projected_gravity = ObsTerm(
+    #         func=mdp.projected_gravity,
+    #         params={"asset_cfg": SceneEntityCfg("robot")},
+    #         noise=Unoise(n_min=-0.05, n_max=0.05),
+    #     )
+    #     velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
+    #     joint_pos = ObsTerm(
+    #         func=mdp.joint_pos_rel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.05, n_max=0.05)
+    #     )
+    #     joint_vel = ObsTerm(
+    #         func=mdp.joint_vel_rel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.5, n_max=0.5)
+    #     )
+    #     actions = ObsTerm(func=mdp.last_action)
+
+    #     def __post_init__(self):
+    #         self.enable_corruption = False
+    #         self.concatenate_terms = True
+            
     # observation groups
     policy: PolicyCfg = PolicyCfg()
+    # critic: CriticCfg = CriticCfg()
 
 
 @configclass
@@ -352,13 +391,33 @@ class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         )
 
         # no height scan
-        self.scene.height_scanner = None
-
+        # self.scene.height_scanner = None    
+        # import pdb; pdb.set_trace()
 
 class SpotFlatEnvCfg_PLAY(SpotFlatEnvCfg):
     def __post_init__(self) -> None:
         # post init of parent
         super().__post_init__()
+
+        self.scene.terrain = TerrainImporterCfg(
+                prim_path="/World/ground",
+                terrain_type="generator",
+                terrain_generator=ROUGH_TERRAINS_CFG,
+                max_init_terrain_level=5,
+                collision_group=-1,
+                physics_material=sim_utils.RigidBodyMaterialCfg(
+                    friction_combine_mode="multiply",
+                    restitution_combine_mode="multiply",
+                    static_friction=1.0,
+                    dynamic_friction=1.0,
+                ),
+                visual_material=sim_utils.MdlFileCfg(
+                    mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+                    project_uvw=True,
+                    texture_scale=(0.25, 0.25),
+                ),
+                debug_vis=False,
+            )
 
         # make a smaller scene for play
         self.scene.num_envs = 50
@@ -371,6 +430,15 @@ class SpotFlatEnvCfg_PLAY(SpotFlatEnvCfg):
             self.scene.terrain.terrain_generator.num_rows = 5
             self.scene.terrain.terrain_generator.num_cols = 5
             self.scene.terrain.terrain_generator.curriculum = False
+
+        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
+        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
+        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
+
+
+        # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
+        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
+        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
 
         # disable randomization for play
         self.observations.policy.enable_corruption = False

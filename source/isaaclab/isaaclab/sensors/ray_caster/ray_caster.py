@@ -213,7 +213,7 @@ class RayCaster(SensorBase):
         # prepare drift
         self.drift = torch.zeros(self._view.count, 3, device=self.device)
         # fill the data buffer
-        self._data.pos_w = torch.zeros(self._view.count, 3, device=self._device)
+        self._data.pos_w = torch.zeros(self._view.count, 4, device=self._device)
         self._data.quat_w = torch.zeros(self._view.count, 4, device=self._device)
         self._data.ray_hits_w = torch.zeros(self._view.count, self.num_rays, 3, device=self._device)
 
@@ -236,6 +236,7 @@ class RayCaster(SensorBase):
         # apply drift
         pos_w += self.drift[env_ids]
         # store the poses
+        # import pdb; pdb.set_trace()
         self._data.pos_w[env_ids] = pos_w
         self._data.quat_w[env_ids] = quat_w
 

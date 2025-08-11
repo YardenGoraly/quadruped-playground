@@ -21,18 +21,20 @@ class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         self.scene.robot = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/base"
+
         # scale down the terrains because the robot is small
-        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
+        # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
 
         # reduce action scale
         self.actions.joint_pos.scale = 0.25
 
-        # event
-        self.events.physics_material.params["dynamic_friction_range"] = (0.5, 0.7)
-        # self.events.push_robot = None
-        # self.events.add_base_mass.params["mass_distribution_params"] = (-2.0, 5.0)
+        # events
+        # self.events.physics_material.params["dynamic_friction_range"] = (0.5, 0.7)
+        self.events.push_robot = None
+        # self.events.base_com = None
+        # self.events.add_base_mass.params["mass_distribution_params"] = (-5.0, 5.0)
         self.events.add_base_mass.params["asset_cfg"].body_names = "base"
         self.events.base_external_force_torque.params["asset_cfg"].body_names = "base"
         # self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
@@ -67,6 +69,13 @@ class UnitreeGo2RoughEnvCfg_PLAY(UnitreeGo2RoughEnvCfg):
         # post init of parent
         super().__post_init__()
 
+        # change terrain to flat (if testing on flat terrain)
+        self.scene.terrain.terrain_type = "plane"
+        self.scene.terrain.terrain_generator = None
+
+        # no terrain curriculum (if testing on flat terrain)
+        self.curriculum.terrain_levels = None
+
         # make a smaller scene for play
         self.scene.num_envs = 50
         self.scene.env_spacing = 2.5
@@ -80,6 +89,6 @@ class UnitreeGo2RoughEnvCfg_PLAY(UnitreeGo2RoughEnvCfg):
 
         # disable randomization for play
         self.observations.policy.enable_corruption = False
-        # remove random pushing event
+
+        # remove domain randomizations
         self.events.base_external_force_torque = None
-        self.events.push_robot = None

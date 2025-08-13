@@ -18,6 +18,8 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  
 from isaaclab.sensors import RayCasterCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
+
 
 import isaaclab_tasks.manager_based.locomotion.velocity.config.spot.mdp as spot_mdp
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
@@ -100,12 +102,12 @@ class SpotObservationsCfg:
             func=mdp.joint_vel_rel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.5, n_max=0.5)
         )
         actions = ObsTerm(func=mdp.last_action)
-        height_scan = ObsTerm(
-            func=mdp.height_scan,
-            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
-            noise=Unoise(n_min=-0.1, n_max=0.1),
-            clip=(-1.0, 1.0),
-        )
+        # height_scan = ObsTerm(
+        #     func=mdp.height_scan,
+        #     params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+        #     noise=Unoise(n_min=-0.1, n_max=0.1),
+        #     clip=(-1.0, 1.0),
+        # )
         
 
         def __post_init__(self):
@@ -331,6 +333,13 @@ class SpotTerminationsCfg:
         time_out=True,
     )
 
+@configclass
+class CurriculumCfg:
+    """Curriculum terms for the MDP."""
+
+    terrain_levels = CurrTerm(func=mdp.terrain_levels_vel)
+
+
 
 @configclass
 class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
@@ -370,29 +379,153 @@ class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.scene.robot = SPOT_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # terrain
+        # self.scene.terrain = TerrainImporterCfg(
+        #     prim_path="/World/ground",
+        #     terrain_type="generator",
+        #     terrain_generator=COBBLESTONE_ROAD_CFG,
+        #     max_init_terrain_level=COBBLESTONE_ROAD_CFG.num_rows - 1,
+        #     collision_group=-1,
+        #     physics_material=sim_utils.RigidBodyMaterialCfg(
+        #         friction_combine_mode="multiply",
+        #         restitution_combine_mode="multiply",
+        #         static_friction=1.0,
+        #         dynamic_friction=1.0,
+        #     ),
+        #     visual_material=sim_utils.MdlFileCfg(
+        #         mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+        #         project_uvw=True,
+        #         texture_scale=(0.25, 0.25),
+        #     ),
+        #     debug_vis=True,
+        # )
+
+        #TESTING
         self.scene.terrain = TerrainImporterCfg(
-            prim_path="/World/ground",
-            terrain_type="generator",
-            terrain_generator=COBBLESTONE_ROAD_CFG,
-            max_init_terrain_level=COBBLESTONE_ROAD_CFG.num_rows - 1,
-            collision_group=-1,
-            physics_material=sim_utils.RigidBodyMaterialCfg(
-                friction_combine_mode="multiply",
-                restitution_combine_mode="multiply",
-                static_friction=1.0,
-                dynamic_friction=1.0,
-            ),
-            visual_material=sim_utils.MdlFileCfg(
-                mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
-                project_uvw=True,
-                texture_scale=(0.25, 0.25),
-            ),
-            debug_vis=True,
-        )
+                prim_path="/World/ground",
+                terrain_type="generator",
+                terrain_generator=ROUGH_TERRAINS_CFG,
+                max_init_terrain_level=5,
+                collision_group=-1,
+                physics_material=sim_utils.RigidBodyMaterialCfg(
+                    friction_combine_mode="multiply",
+                    restitution_combine_mode="multiply",
+                    static_friction=1.0,
+                    dynamic_friction=1.0,
+                ),
+                visual_material=sim_utils.MdlFileCfg(
+                    mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+                    project_uvw=True,
+                    texture_scale=(0.25, 0.25),
+                ),
+                debug_vis=True,
+            )
+
+
+        # self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/body"
+        # # scale down the terrains because the robot is small
+        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
+        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
+        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
+
+        # self.actions.joint_pos.scale = 0.25
+
+        # self.events.physics_material.params["dynamic_friction_range"] = (0.5, 0.7)
+        self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
+        # self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
+        # self.events.reset_base.params = {
+        #     "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+        #     "velocity_range": {
+        #         "x": (0.0, 0.0),
+        #         "y": (0.0, 0.0),
+        #         "z": (0.0, 0.0),
+        #         "roll": (0.0, 0.0),
+        #         "pitch": (0.0, 0.0),
+        #         "yaw": (0.0, 0.0),
+        #     },
+        # }
+        if getattr(self.curriculum, "terrain_levels", None) is not None:
+            if self.scene.terrain.terrain_generator is not None:
+                self.scene.terrain.terrain_generator.curriculum = True
+        else:
+            if self.scene.terrain.terrain_generator is not None:
+                self.scene.terrain.terrain_generator.curriculum = False
+
+        # self.rewards.air_time.weight = 0.01
+        # self.rewards.joint_torques.weight = -0.0002
+        self.rewards.base_linear_velocity.weight = 7
+        self.rewards.base_angular_velocity.weight = 7
+        self.rewards.gait.weight = 14
+        self.rewards.action_smoothness.weight = -1.25
+        self.rewards.foot_clearance.weight = 1
+        self.rewards.joint_pos.weight = -1.3
+
+        # self.rewards.joint_acc.weight = -2.5e-7
 
         # no height scan
         # self.scene.height_scanner = None    
         # import pdb; pdb.set_trace()
+
+# Original Spot flat:
+# @configclass
+# class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
+
+#     # Basic settings
+#     observations: SpotObservationsCfg = SpotObservationsCfg()
+#     actions: SpotActionsCfg = SpotActionsCfg()
+#     commands: SpotCommandsCfg = SpotCommandsCfg()
+
+#     # MDP setting
+#     rewards: SpotRewardsCfg = SpotRewardsCfg()
+#     terminations: SpotTerminationsCfg = SpotTerminationsCfg()
+#     events: SpotEventCfg = SpotEventCfg()
+
+#     # Viewer
+#     viewer = ViewerCfg(eye=(10.5, 10.5, 0.3), origin_type="world", env_index=0, asset_name="robot")
+
+#     def __post_init__(self):
+#         # post init of parent
+#         super().__post_init__()
+
+#         # general settings
+#         self.decimation = 10  # 50 Hz
+#         self.episode_length_s = 20.0
+#         # simulation settings
+#         self.sim.dt = 0.002  # 500 Hz
+#         self.sim.render_interval = self.decimation
+#         self.sim.physics_material.static_friction = 1.0
+#         self.sim.physics_material.dynamic_friction = 1.0
+#         self.sim.physics_material.friction_combine_mode = "multiply"
+#         self.sim.physics_material.restitution_combine_mode = "multiply"
+#         # update sensor update periods
+#         # we tick all the sensors based on the smallest update period (physics update period)
+#         self.scene.contact_forces.update_period = self.sim.dt
+
+#         # switch robot to Spot-d
+#         self.scene.robot = SPOT_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+#         # terrain
+#         self.scene.terrain = TerrainImporterCfg(
+#             prim_path="/World/ground",
+#             terrain_type="generator",
+#             terrain_generator=COBBLESTONE_ROAD_CFG,
+#             max_init_terrain_level=COBBLESTONE_ROAD_CFG.num_rows - 1,
+#             collision_group=-1,
+#             physics_material=sim_utils.RigidBodyMaterialCfg(
+#                 friction_combine_mode="multiply",
+#                 restitution_combine_mode="multiply",
+#                 static_friction=1.0,
+#                 dynamic_friction=1.0,
+#             ),
+#             visual_material=sim_utils.MdlFileCfg(
+#                 mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+#                 project_uvw=True,
+#                 texture_scale=(0.25, 0.25),
+#             ),
+#             debug_vis=True,
+#         )
+
+#         # no height scan
+#         self.scene.height_scanner = None
 
 class SpotFlatEnvCfg_PLAY(SpotFlatEnvCfg):
     def __post_init__(self) -> None:
@@ -434,6 +567,7 @@ class SpotFlatEnvCfg_PLAY(SpotFlatEnvCfg):
         self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
+        # import pdb; pdb.set_trace()
 
 
         # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)

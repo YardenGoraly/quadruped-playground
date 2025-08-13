@@ -64,9 +64,9 @@ class MySceneCfg(InteractiveSceneCfg):
     robot: ArticulationCfg = MISSING
     # sensors
     height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base",
-        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 0.3)),
-        attach_yaw_only=True,
+        prim_path="{ENV_REGEX_NS}/Robot/body",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 0.5)),
+        ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
@@ -114,20 +114,20 @@ class ActionsCfg:
 
 @configclass
 class ObservationsCfg:
-    """Observation specifications for the MDP."""    
+    """Observation specifications for the MDP."""
 
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
+
         # observation terms (order preserved)
-        # base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
         projected_gravity = ObsTerm(
-            clip=(-1.0, 1.0),
             func=mdp.projected_gravity,
             noise=Unoise(n_min=-0.05, n_max=0.05),
         )
-        command = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
+        velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
         joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
         actions = ObsTerm(func=mdp.last_action)
@@ -137,35 +137,14 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.1, n_max=0.1),
             clip=(-1.0, 1.0),
         )
-        
+
         def __post_init__(self):
             self.enable_corruption = True
-            self.concatenate_terms = True    
-
-    @configclass
-    class CriticCfg(ObsGroup):
-        """Observations for the critic (value function)."""
-        # Privileged observation (ground-truth, no noise)
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel) # No noise for the critic
-        
-        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-        projected_gravity = ObsTerm(
-            func=mdp.projected_gravity,
-            noise=Unoise(n_min=-0.05, n_max=0.05),
-            clip=(-1.0, 1.0),
-        )
-        command = ObsTerm(func=mdp.generated_commands, params={"command_name": "twist"})
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
-        actions = ObsTerm(func=mdp.last_action)
-
-        def __post_init__(self):
-            self.enable_corruption = True  # Noise is still applied to the non-privileged terms
             self.concatenate_terms = True
-            
+
     # observation groups
     policy: PolicyCfg = PolicyCfg()
-    critic: CriticCfg = CriticCfg()
+
 
 @configclass
 class EventCfg:
@@ -189,7 +168,7 @@ class EventCfg:
         mode="startup",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "mass_distribution_params": (-10.0, 10.0),
+            "mass_distribution_params": (-5.0, 5.0),
             "operation": "add",
         },
     )
@@ -204,22 +183,13 @@ class EventCfg:
     )
 
     # reset
-    vary_decimation = EventTerm(
-        func=mdp.randomize_decimation_on_reset,
-        mode="reset", 
-        params={
-            "min_decimation": 4, 
-            "max_decimation": 5,
-            },
-    )
-
     base_external_force_torque = EventTerm(
         func=mdp.apply_external_force_torque,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names="base"),
-            "force_range": (-1.0, 1.0),
-            "torque_range": (-1.0, 1.0),
+            "force_range": (0.0, 0.0),
+            "torque_range": (-0.0, 0.0),
         },
     )
 
@@ -252,8 +222,8 @@ class EventCfg:
     push_robot = EventTerm(
         func=mdp.push_by_setting_velocity,
         mode="interval",
-        interval_range_s=(5.0, 10.0),
-        params={"velocity_range": {"x": (-0.25, 0.25), "y": (-0.25, 0.25)}},
+        interval_range_s=(10.0, 15.0),
+        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}},
     )
 
 
@@ -276,7 +246,7 @@ class RewardsCfg:
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     feet_air_time = RewTerm(
         func=mdp.feet_air_time,
-        weight=0.25,
+        weight=0.125,
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*FOOT"),
             "command_name": "twist",

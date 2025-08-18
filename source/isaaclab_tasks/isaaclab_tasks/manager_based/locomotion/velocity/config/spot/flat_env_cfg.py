@@ -102,12 +102,12 @@ class SpotObservationsCfg:
             func=mdp.joint_vel_rel, params={"asset_cfg": SceneEntityCfg("robot")}, noise=Unoise(n_min=-0.5, n_max=0.5)
         )
         actions = ObsTerm(func=mdp.last_action)
-        # height_scan = ObsTerm(
-        #     func=mdp.height_scan,
-        #     params={"sensor_cfg": SceneEntityCfg("height_scanner")},
-        #     noise=Unoise(n_min=-0.1, n_max=0.1),
-        #     clip=(-1.0, 1.0),
-        # )
+        height_scan = ObsTerm(
+            func=mdp.height_scan,
+            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+            clip=(-1.0, 1.0),
+        )
         
 
         def __post_init__(self):
@@ -423,26 +423,28 @@ class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
 
         # self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/body"
         # # scale down the terrains because the robot is small
-        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
-        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
+        self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.00, 0.1)
+        self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.00, 0.06)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
 
-        # self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.scale = 0.25
 
         # self.events.physics_material.params["dynamic_friction_range"] = (0.5, 0.7)
         self.events.add_base_mass.params["mass_distribution_params"] = (-1.0, 3.0)
         # self.events.reset_robot_joints.params["position_range"] = (1.0, 1.0)
-        # self.events.reset_base.params = {
-        #     "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
-        #     "velocity_range": {
-        #         "x": (0.0, 0.0),
-        #         "y": (0.0, 0.0),
-        #         "z": (0.0, 0.0),
-        #         "roll": (0.0, 0.0),
-        #         "pitch": (0.0, 0.0),
-        #         "yaw": (0.0, 0.0),
-        #     },
-        # }
+        self.events.reset_base.params = {
+            "asset_cfg": SceneEntityCfg("robot"),
+            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
+            "velocity_range": {
+                "x": (-1.5, 1.5),
+                "y": (-1.0, 1.0),
+                "z": (-0.5, 0.5),
+                "roll": (-0.7, 0.7),
+                "pitch": (-0.7, 0.7),
+                "yaw": (-1.0, 1.0),
+            },
+        }
+
         if getattr(self.curriculum, "terrain_levels", None) is not None:
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = True
@@ -450,16 +452,21 @@ class SpotFlatEnvCfg(LocomotionVelocityRoughEnvCfg):
             if self.scene.terrain.terrain_generator is not None:
                 self.scene.terrain.terrain_generator.curriculum = False
 
-        # self.rewards.air_time.weight = 0.01
-        # self.rewards.joint_torques.weight = -0.0002
-        self.rewards.base_linear_velocity.weight = 7
-        self.rewards.base_angular_velocity.weight = 7
-        self.rewards.gait.weight = 14
-        self.rewards.action_smoothness.weight = -1.25
-        self.rewards.foot_clearance.weight = 1
-        self.rewards.joint_pos.weight = -1.3
+        # self.actions.joint_pos.scale = 0.25
 
-        # self.rewards.joint_acc.weight = -2.5e-7
+        self.rewards.air_time.weight = 5.5
+        # self.rewards.joint_torques.weight = -0.0002
+        self.rewards.base_linear_velocity.weight = 8
+        self.rewards.base_angular_velocity.weight = 8
+        # self.rewards.base_orientation.weight = -3.5
+        self.rewards.gait.weight = 15
+        self.rewards.base_motion.weight = -3
+        self.rewards.base_orientation.weight = -4
+        # self.rewards.action_smoothness.weight = -1.25
+        # self.rewards.foot_clearance.weight = 1
+        # self.rewards.joint_pos.weight = -1.3
+
+        self.rewards.joint_acc.weight = -3e-4
 
         # no height scan
         # self.scene.height_scanner = None    

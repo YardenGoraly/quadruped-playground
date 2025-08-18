@@ -37,7 +37,7 @@ class SpotFlatPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         max_grad_norm=1.0,
     )
 
-    def __post_init__(self):
-            super().__post_init__()
-            self.load_run = "2025-08-12_16-23-27"
-            self.load_checkpoint = "model_2450.pt"
+    # def __post_init__(self):
+    #         super().__post_init__()
+            # self.load_run = "2025-08-12_16-23-27"
+            # self.load_checkpoint = "model_2450.pt"

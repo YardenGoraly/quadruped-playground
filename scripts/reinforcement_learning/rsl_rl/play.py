@@ -202,6 +202,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         # run everything in inference mode
         with torch.inference_mode():
             # agent stepping
+            # import pdb; pdb.set_trace()
             actions = policy(obs)
             # env stepping
             obs, _, _, _ = env.step(actions)

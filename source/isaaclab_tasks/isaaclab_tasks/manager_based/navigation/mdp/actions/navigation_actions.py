@@ -167,6 +167,7 @@ class NavigationSE2Action(ActionTerm):
             self._low_level_actions[:] = self.low_level_policy(
                 self._env.observation_manager.compute_group(group_name=self.cfg.low_level_obs_group)
             )
+            # print("[INFO]: input to loc policy: ", self._env.observation_manager.compute_group(group_name=self.cfg.low_level_obs_group).shape)
             # reorder joints
             if self.cfg.reorder_joint_list is not None:
                 self._low_level_actions = self._low_level_actions[:, self.joint_mapping_gym_to_sim]

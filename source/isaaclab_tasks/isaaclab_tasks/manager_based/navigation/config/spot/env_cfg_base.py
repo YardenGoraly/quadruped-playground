@@ -126,7 +126,7 @@ class ActionsCfg:
     velocity_command = mdp.NavigationSE2ActionCfg(
         asset_name="robot",
         low_level_action=mdp.JointPositionActionCfg(
-            asset_name="robot", joint_names=[".*"], scale=1.0, use_default_offset=False
+            asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True
         ),
         # low_level_policy_file=ISAACLAB_NUCLEUS_DIR + "/Policies/ANYmal-C/HeightScan/policy.pt",
         low_level_policy_file="/home/quadruped/quadruped/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/navigation/config/spot/policies/height_scan/policy.pt",
@@ -147,10 +147,10 @@ class ObservationsCfg:
         # observation terms (order preserved)
         base_lin_vel = ObsTerm(func=mdp.base_lin_vel, params={"asset_cfg": SceneEntityCfg("robot")})
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, params={"asset_cfg": SceneEntityCfg("robot")})
-        projected_gravity = ObsTerm(func=mdp.projected_gravity, params={"asset_cfg": SceneEntityCfg("robot")})
+        projected_gravity = ObsTerm(func=mdp.projected_gravity)
         velocity_commands = ObsTerm(func=mdp.vel_commands, params={"action_term": "velocity_command"})
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel, params={"asset_cfg": SceneEntityCfg("robot")})
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel, params={"asset_cfg": SceneEntityCfg("robot")})
+        joint_pos = ObsTerm(func=mdp.joint_pos_rel)
+        joint_vel = ObsTerm(func=mdp.joint_vel_rel)
         actions = ObsTerm(func=mdp.last_low_level_action, params={"action_term": "velocity_command"})
         height_scan = ObsTerm(
             func=mdp.height_scan,
@@ -478,7 +478,18 @@ class NavTasksDepthNavEnvCfg_PLAY(NavTasksDepthNavEnvCfg):
 
 @configclass
 class NavTasksDepthNavEnvCfg_DEV(NavTasksDepthNavEnvCfg):
+
+    def zero_commands(env: ManagerBasedEnv) -> torch.Tensor:
+        """The generated command from the command generator."""
+        return torch.tensor([[0, 0, 0]], device=env.device).repeat(env.num_envs, 1)
+    
     def __post_init__(self):
         super().__post_init__()
 
-        self.scene.num_envs = 2
+        # change terrain to flat
+        self.scene.terrain.terrain_type = "plane"
+        self.scene.terrain.terrain_generator = None
+
+        self.scene.num_envs = 1
+
+        self.observations.low_level_policy.velocity_commands = ObsTerm(func=self.zero_commands, params={"action_term": "velocity_command"})

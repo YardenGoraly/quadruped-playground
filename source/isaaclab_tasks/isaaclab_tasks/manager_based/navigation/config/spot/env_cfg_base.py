@@ -256,7 +256,7 @@ class RewardsCfg:
     episode_termination = RewTerm(
         func=mdp.is_terminated_term,  # type: ignore
         params={"term_keys": ["base_contact", "leg_contact"]},
-        weight=-200.0,  # Sparse Reward of {-20.0, 0.0} --> Max Episode Penalty: -20.0
+        weight=-20.0,  # Sparse Reward of {-20.0, 0.0} --> Max Episode Penalty: -20.0
     )
     action_rate_l2 = RewTerm(
         func=mdp.action_rate_l2,

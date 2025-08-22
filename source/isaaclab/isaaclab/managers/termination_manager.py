@@ -160,9 +160,19 @@ class TerminationManager(ManagerBase):
         # reset computation
         self._truncated_buf[:] = False
         self._terminated_buf[:] = False
+
+        # Add a header for the output
+        # print("-" * 50)
+        # print("Checking Termination Terms:")
+
         # iterate over all the termination terms
         for name, term_cfg in zip(self._term_names, self._term_cfgs):
             value = term_cfg.func(self._env, **term_cfg.params)
+
+            # Print the status of the current term only if any value is true
+            # if torch.any(value):
+            #     print(f"  - Term '{name}' was TRUE for environments: {value.nonzero(as_tuple=False).squeeze(-1).tolist()}")
+
             # store timeout signal separately
             if term_cfg.time_out:
                 self._truncated_buf |= value
@@ -170,6 +180,8 @@ class TerminationManager(ManagerBase):
                 self._terminated_buf |= value
             # add to episode dones
             self._term_dones[name][:] = value
+
+        # print("-" * 50)
         # return combined termination signal
         return self._truncated_buf | self._terminated_buf
 

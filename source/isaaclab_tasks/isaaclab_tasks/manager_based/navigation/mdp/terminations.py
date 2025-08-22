@@ -49,6 +49,10 @@ def at_goal(
     within_speed = True
     if speed_threshold is not None:
         abs_velocity = torch.norm(asset.data.root_vel_w[:, 0:6], dim=1, p=2)
+        # print("absolute velocity: ", abs_velocity)
+        # NOTES: robot never learns to slow down near target, instead choosing to spin around
+        # perhaps the reward for slowing down near the target is too low, or the threshold is too low for curriculum learning
+        # we could introduce a higher speed threshold for curriculum learning, or we can increase the reward for slowing down
         within_speed = abs_velocity < speed_threshold
     within_angle = True
     if angle_threshold is not None:
@@ -57,6 +61,9 @@ def at_goal(
         else:
             angle_goal = torch.abs(wrap_to_pi(asset.data.heading_w - goal_cmd_generator.heading_command_w))
             within_angle = angle_goal < angle_threshold
+    # print("within distance: ", within_distance)
+    # print("within speed: ", within_speed)
+    # print("within angle: ", within_angle)
     return within_distance & within_speed & within_angle
 
 
@@ -101,12 +108,15 @@ class StayedAtGoal(ManagerTermBase):
     ) -> torch.Tensor:
         # check if the goal is reached at this step
         currently_at_goal = at_goal(env, distance_threshold=distance_threshold, angle_threshold=angle_threshold, speed_threshold=speed_threshold)  # type: ignore
-
+        # if torch.any(currently_at_goal):
+        #     print("goal condition satisfied", self.time_at_goal)
         # update the time at goal
         self.time_at_goal[currently_at_goal] += env.step_dt
         self.time_at_goal[~currently_at_goal] = 0.0
 
         # check if the time at goal exceeds the threshold
+        # if self.time_at_goal > time_threshold:
+        #     print("time threshold:", time_threshold)
         return self.time_at_goal > time_threshold
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:

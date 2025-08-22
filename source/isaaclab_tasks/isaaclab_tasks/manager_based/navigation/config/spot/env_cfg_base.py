@@ -237,7 +237,7 @@ class RewardsCfg:
     )
     near_goal_stability = RewTerm(
         func=mdp.near_goal_stability,
-        weight=2.0,  # Dense Reward of [0.0, 0.1] --> Max Episode Reward: 1.0
+        weight=10.0,  # Dense Reward of [0.0, 0.1] --> Max Episode Reward: 1.0
     )
     near_goal_angle = RewTerm(
         func=mdp.near_goal_angle,
@@ -466,7 +466,7 @@ class NavTasksDepthNavEnvCfg_PLAY(NavTasksDepthNavEnvCfg):
         # Set fixed parameters for play mode
         self.events.reset_base.params["yaw_range"] = (0, 0)
         self.terminations.goal_reached.params = {
-            "time_threshold": 0.1,
+            "time_threshold": 2.0,
             "distance_threshold": 0.5,
             "angle_threshold": 0.3,
             "speed_threshold": 0.6,

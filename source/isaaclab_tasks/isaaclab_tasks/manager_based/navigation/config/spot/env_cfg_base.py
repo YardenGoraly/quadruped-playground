@@ -26,9 +26,14 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, RayCasterCameraCfg, RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG
+from isaaclab_tasks.manager_based.navigation.terrains import MazeTerrainCfg
+from isaaclab_tasks.manager_based.navigation.terrains import CorridorTerrainCfg
+from isaaclab_tasks.manager_based.navigation.terrains.maze_terrain import maze_terrain
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 from isaaclab_assets.robots.spot import SPOT_CFG
+
 
 from nav_suite.collectors import TrajectorySamplingCfg
 from nav_suite.terrain_analysis import TerrainAnalysisCfg
@@ -145,31 +150,37 @@ class ObservationsCfg:
         """
 
         # observation terms (order preserved)
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, params={"asset_cfg": SceneEntityCfg("robot")})
-        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, params={"asset_cfg": SceneEntityCfg("robot")})
-        projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, 
+                               params={"asset_cfg": SceneEntityCfg("robot")}, 
+                               noise=Unoise(n_min=-0.1, n_max=0.1))
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, 
+                               params={"asset_cfg": SceneEntityCfg("robot")}, 
+                               noise=Unoise(n_min=-0.2, n_max=0.2))
+        projected_gravity = ObsTerm(func=mdp.projected_gravity, 
+                                    noise=Unoise(n_min=-0.05, n_max=0.05))
         velocity_commands = ObsTerm(func=mdp.vel_commands, params={"action_term": "velocity_command"})
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel)
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
         actions = ObsTerm(func=mdp.last_low_level_action, params={"action_term": "velocity_command"})
         height_scan = ObsTerm(
             func=mdp.height_scan,
             params={"sensor_cfg": SceneEntityCfg("height_scanner")},
+            noise=Unoise(n_min=-0.1, n_max=0.1), 
             clip=(-1.0, 1.0),
         )
 
         def __post_init__(self):
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = True
 
     @configclass
     class NavigationPolicyCfg(ObsGroup):
         """Observations for navigation policy group."""
 
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
-        base_ang_vel = ObsTerm(func=mdp.base_ang_vel)
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel)
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
 
         goal_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "goal_command"})
 
@@ -178,7 +189,7 @@ class ObservationsCfg:
         )
 
         def __post_init__(self):
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = True
 
     # Observation Groups
@@ -233,6 +244,10 @@ class RewardsCfg:
 
     stepped_goal_progress = mdp.SteppedProgressCfg(
         step=0.05,
+        weight=1.0,
+    )
+    average_velocity = mdp.AverageEpisodeVelocityCfg(
+        goal_reached_termination_name = "goal_reached",
         weight=1.0,
     )
     near_goal_stability = RewTerm(
@@ -341,11 +356,11 @@ class CurriculumCfg:
         func=mdp.modify_goal_conditions,
         params={
             "termination_term_name": "goal_reached",
-            "time_range": (2.0, 2.0),
+            "time_range": (0.3, 2.0),
             "distance_range": (1, 0.5),
             "angle_range": (0.6, 0.3),
             "speed_range": (1.3, 0.6),
-            "step_range": (0, 500 * 48),
+            "step_range": (0, 500 * 48 * 5),
         },
     )
 
@@ -459,6 +474,10 @@ class NavTasksDepthNavEnvCfg_PLAY(NavTasksDepthNavEnvCfg):
 
         # Change number of environments
         self.scene.num_envs = 10
+
+        # Disable randomization
+        self.observations.low_level_policy.enable_corruption = False
+        self.observations.policy.enable_corruption = False
 
         # Disable curriculum
         self.curriculum = CurriculumCfg()

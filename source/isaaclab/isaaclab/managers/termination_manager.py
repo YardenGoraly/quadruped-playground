@@ -161,10 +161,6 @@ class TerminationManager(ManagerBase):
         self._truncated_buf[:] = False
         self._terminated_buf[:] = False
 
-        # Add a header for the output
-        # print("-" * 50)
-        # print("Checking Termination Terms:")
-
         # iterate over all the termination terms
         for name, term_cfg in zip(self._term_names, self._term_cfgs):
             value = term_cfg.func(self._env, **term_cfg.params)
@@ -181,8 +177,6 @@ class TerminationManager(ManagerBase):
             # add to episode dones
             self._term_dones[name][:] = value
 
-        # print("-" * 50)
-        # return combined termination signal
         return self._truncated_buf | self._terminated_buf
 
     def get_term(self, name: str) -> torch.Tensor:

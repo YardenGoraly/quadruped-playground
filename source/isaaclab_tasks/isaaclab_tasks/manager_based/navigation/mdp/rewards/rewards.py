@@ -83,6 +83,11 @@ def near_goal_stability(
     # TODO: add angle distance to scaling
     distance_scaling = torch.exp(-0.6 * (distance_goal + angle_goal) ** 3)
 
+    # print("angle: ", angle_goal)
+    # print("distance plus angle: ", distance_goal + angle_goal)
+    # print("linear velocity: ", asset.data.root_vel_w[:, 0:3])
+    # print("angular velocity: ", asset.data.root_vel_w[:, 3:6])
+    
     # reward = 1 for zero velocity, ~=0 for 2 velocity_norm
     reward = torch.exp(-1.5 * velocity_norm) * distance_scaling
     return reward

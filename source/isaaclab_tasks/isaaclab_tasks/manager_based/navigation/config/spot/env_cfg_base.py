@@ -56,7 +56,7 @@ IMAGE_SIZE_DOWNSAMPLE_FACTOR = 15
 
 @configclass
 class NavTasksDepthNavSceneCfg(InteractiveSceneCfg):
-    """Configuration for a scene for training a perceptive navigation policy on an AnymalD Robot."""
+    """Configuration for a scene for training a perceptive navigation policy on a Spot Robot."""
 
     # TERRAIN
     terrain = TerrainImporterCfg(
@@ -134,7 +134,7 @@ class ActionsCfg:
             asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True
         ),
         # low_level_policy_file=ISAACLAB_NUCLEUS_DIR + "/Policies/ANYmal-C/HeightScan/policy.pt",
-        low_level_policy_file="/home/quadruped/quadruped/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/manager_based/navigation/config/spot/policies/height_scan/policy.pt",
+        low_level_policy_file="source/isaaclab_tasks/isaaclab_tasks/manager_based/navigation/config/spot/policies/height_scan/policy.pt",
     )
 
 
@@ -493,14 +493,15 @@ class NavTasksDepthNavEnvCfg_PLAY(NavTasksDepthNavEnvCfg):
 
         self.viewer.eye = (0.0, 7.0, 7.0)
         self.viewer.lookat = (0.0, 0.0, 0.0)
+        print("RANGE: ", self.commands.goal_command.path_length_range)
 
 
 @configclass
 class NavTasksDepthNavEnvCfg_DEV(NavTasksDepthNavEnvCfg):
 
-    def zero_commands(env: ManagerBasedEnv) -> torch.Tensor:
+    def zero_commands(self: ManagerBasedEnv) -> torch.Tensor:
         """The generated command from the command generator."""
-        return torch.tensor([[0, 0, 0]], device=env.device).repeat(env.num_envs, 1)
+        return torch.tensor([[0, 0, 0]], device=self.device).repeat(self.num_envs, 1)
     
     def __post_init__(self):
         super().__post_init__()

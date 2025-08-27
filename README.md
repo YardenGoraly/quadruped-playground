@@ -16,6 +16,11 @@ This repository is a fork of the original Isaac Lab, configured for training a n
          git pull tiamat navigation
       ```
 
+4. **Download locomotion policy file:** For some reason, the policy.pt file is unable to download properly when pulling, so you must download it manually from here:
+      ```bash
+         https://github.com/JonasFrey96/tiamat/tree/navigation/source/isaaclab_tasks/isaaclab_tasks/manager_based/navigation/config/spot/policies/height_scan
+      ```
+   and place it in the same location on your local repository.
 ***
 
 ## 🏃 Training
